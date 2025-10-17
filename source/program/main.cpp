@@ -19,17 +19,24 @@ struct encounter_info_t {
 } PACKED;
 
 
-HOOK_DEFINE_INLINE(AllAlpha) {
+HOOK_DEFINE_INLINE(AllAlphaRandomzer) {
     static void Callback(exl::hook::nx64::InlineCtx* ctx) {
         auto encounter_info = reinterpret_cast<encounter_info_t*>(ctx->X[0]);
         encounter_info->alpha_rate = 101.0f;
+        do {
+            // TODO: this is INCREDIBLY naive
+            encounter_info->species = (exl::util::GetRandomU64() % 1025) + 1;
+            encounter_info->form = exl::util::GetRandomU64() % 31;
+            // PersonalInfo::ExistsInGame
+        }
+        while (!external<bool>(0x2aa84c, encounter_info->species, encounter_info->form));
     }
 };
 
 extern "C" void exl_main(void* x0, void* x1) {
     exl::hook::Initialize();
 
-    AllAlpha::InstallAtOffset(0x42eb34);
+    AllAlphaRandomzer::InstallAtOffset(0x42eb34);
 }
 
 extern "C" NORETURN void exl_exception_entry() {
