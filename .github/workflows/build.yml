@@ -1,0 +1,49 @@
+name: Build Mods
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Build
+      run: |
+        ./exlaunch.sh build
+        ./exlaunch.sh deploy-artifact
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: artifact
+        path: ./artifact/
+              
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download a Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      - name: Zip artifacts for release
+        run: |
+          for i in */; do zip -r "${i%/}.zip" "$i"; done
+        working-directory: artifacts
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          name: Release ${{ github.ref_name }}
+          tag_name: latest-${{ github.ref_name }}
+          body: ${{ github.event.head_commit.message }}
+          files: artifacts/*
+          
