@@ -9,9 +9,9 @@ inline static Ret external(long addr, Args... args) {
 struct encounter_info_t {
     u8 unk_0[0x48];
     u16 species;
-    u8 unk_1[0x4];
+    u8 unk_1[0x6];
     f32 alpha_rate;
-    u32 alpha_level_boost;
+    u16 alpha_level_boost;
     u64 can_be_alpha;
     u8 unk_2[0x6];
     u16 form;
