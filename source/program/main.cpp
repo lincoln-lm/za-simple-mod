@@ -6,33 +6,39 @@ inline static Ret external(long addr, Args... args) {
     return reinterpret_cast<Ret(*)(Args...)>(exl::util::modules::GetTargetOffset(addr))(args...);
 }
 
-u16 rand_move() {
-    u16* move_table = reinterpret_cast<u16*>(exl::util::modules::GetTargetOffset(0x3156fd8));
-    return move_table[exl::util::GetRandomU64() % 247];
-}
+static u8 last_selected_mon = 0;
+static u8 last_experience_index = 0;
 
-HOOK_DEFINE_INLINE(MoveRandomizer) {
+HOOK_DEFINE_INLINE(UpdateLastSentOutMon) {
     static void Callback(exl::hook::nx64::InlineCtx* ctx) {
-        static float last_timers[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        last_selected_mon = ctx->W[8];
+    }
+};
 
-        u64 pkm = *reinterpret_cast<u64*>(*reinterpret_cast<u64*>(ctx->X[19] + 0x50) + 0x70);
-        float* timers = reinterpret_cast<float*>(ctx->X[19] + 0x5c);
-        for (int i = 0; i < 4; i++) {
-            // move was just used so its timer is reset from 0
-            if (last_timers[i] == 0.0f && timers[i] != 0.0f) {
-                // SetMove(pkm, index, move_id)
-                external<void>(0xd11e60, pkm, i, rand_move());
-            }
-            last_timers[i] = timers[i];
+HOOK_DEFINE_INLINE(ResetExperienceIndex) {
+    static void Callback(exl::hook::nx64::InlineCtx* ctx) {
+        last_experience_index = 0;
+    }
+};
+
+HOOK_DEFINE_INLINE(GatekeepExperience) {
+    static void Callback(exl::hook::nx64::InlineCtx* ctx) {
+        // only give exp to the pokemon that is currently out (presumably the one that was used in battle)
+        if (last_experience_index++ != last_selected_mon) {
+            ctx->W[8] = 0;
         }
-        
     }
 };
 
 extern "C" void exl_main(void* x0, void* x1) {
     exl::hook::Initialize();
 
-    MoveRandomizer::InstallAtOffset(0xbfe318);
+    // start of function that gives exp to party
+    ResetExperienceIndex::InstallAtOffset(0x2420dc);
+    // part of the above function that reads the amount of exp to give
+    GatekeepExperience::InstallAtOffset(0x242164);
+    // called constantly in the overworld and checks the sent out mon's index
+    UpdateLastSentOutMon::InstallAtOffset(0x2e7380);
 }
 
 extern "C" NORETURN void exl_exception_entry() {
